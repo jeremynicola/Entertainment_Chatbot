@@ -159,6 +159,21 @@ Conversation so far:
     st.session_state.chat_history.append({"sender": "bot", "message": answer})
     st.session_state.memory.chat_memory.add_ai_message(answer)
 
+
+
+# Initialize session state key
+if "user_input" not in st.session_state:
+    st.session_state["user_input"] = ""
+
+# Input box with key
+user_input = st.text_input("Type your message...", key="user_input")
+
+# Button to send message
+if st.button("Send"):
+    st.write(f"You typed: {st.session_state['user_input']}")
+    # Clear input after sending
+    st.session_state["user_input"] = ""
+    
 # === Render chat history ===
 for chat in st.session_state.chat_history:
     render_message(chat["message"], chat["sender"])
