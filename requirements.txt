@@ -4,7 +4,7 @@ langchain-core==0.2.1
 langchain-community==0.2.1
 langchain-groq
 sentence-transformers
-faiss-cpu==1.7.4
+faiss-cpu
 pypdf
 ddgs
 pandas
