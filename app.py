@@ -20,7 +20,7 @@ MODEL_NAME = "llama3-70b-8192"
 def initialize_llm():
     return ChatGroq(
         temperature=0.5,
-        groq_api_key=st.secrets["GROQ_API_KEY"],
+        groq_api_key=st.secrets["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"],
         model_name=MODEL_NAME
     )
 
