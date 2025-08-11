@@ -8,7 +8,7 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
-from duckduckgo_search import DDGS
+
 
 # === SETTINGS ===
 DATA_DIR = "./data"
