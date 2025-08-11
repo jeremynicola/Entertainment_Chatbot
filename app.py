@@ -56,43 +56,6 @@ def setup_chain(llm, vector_db):
         return_source_documents=True
     )
 
-# === LIVE INTERNET SEARCH (DuckDuckGo + fallback parsing) ===
-def live_search(query):
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=1))
-
-        if not results:
-            st.warning("❌ No search results found.")
-            return None
-
-        top_link = results[0].get("href")
-        st.info(f"🔍 Found link: {top_link}")
-
-        # Try Newspaper3k
-        content = None
-        try:
-            article = Article(top_link)
-            article.download()
-            article.parse()
-            content = article.text.strip()
-        except Exception as e:
-            st.warning(f"⚠ Newspaper3k failed: {e}")
-
-        # Fallback to Trafilatura
-        if not content:
-            try:
-                downloaded = trafilatura.fetch_url(top_link)
-                if downloaded:
-                    content = trafilatura.extract(downloaded)
-            except Exception as e:
-                st.warning(f"⚠ Trafilatura failed: {e}")
-
-        return content[:2000] if content else None
-
-    except Exception as e:
-        st.error(f"Live search error: {type(e).__name__} - {e}")
-        return None
 
 # === STYLE MESSAGE RENDERER ===
 def render_message(message, sender):
@@ -115,6 +78,14 @@ st.caption("Ask about movies, games, or celebrities!")
 
 user_input = st.text_input("Type your message...")
 
+# Clear chat history button
+if st.button("Clear Chat History"):
+    st.session_state.chat_history = []
+    st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    st.experimental_rerun()
+
+user_input = st.text_input("Type your message...", key="user_message")
+
 if user_input:
     llm = initialize_llm()
     db = load_or_create_db()
@@ -130,28 +101,21 @@ if user_input:
             result = qa_chain.invoke({"query": user_input})
             answer = result["result"]
 
-    # 2. If no answer, try live search
-    if not answer or answer.strip().lower() in ["", "i don't know", "not sure"]:
-        with st.spinner("🌍 Searching the web..."):
-            search_result = live_search(user_input)
-            if search_result:
-                conversation_history = ''.join([f"{m['sender']}: {m['message']}\n" for m in st.session_state.chat_history])
-                rewrite_prompt = f"""
-You are an entertainment expert.
-Rewrite the following extracted web content into a friendly, clear answer:
-
-User question: {user_input}
-Web content: {search_result}
-
-Conversation so far:
-{conversation_history}
-"""
-                answer = llm.invoke(rewrite_prompt).content
+   
             else:
-                answer = "Sorry, I couldn't find an answer in the documents or online."
-
+                answer = "Sorry, I couldn't find an answer in the databases."
+s
+    
+    # Save conversation
+    st.session_state.chat_history.append({"sender": "user", "message": user_input})
+    st.session_state.memory.chat_memory.add_user_message(user_input)
     st.session_state.chat_history.append({"sender": "bot", "message": answer})
     st.session_state.memory.chat_memory.add_ai_message(answer)
+
+    # Clear input
+    st.session_state.user_message = ""
+    st.experimental_rerun()
+
 
 # === Render chat history ===
 for chat in st.session_state.chat_history:
