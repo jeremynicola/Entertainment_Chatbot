@@ -9,8 +9,6 @@ from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
 from duckduckgo_search import DDGS
-from newspaper import Article
-import trafilatura
 
 # === SETTINGS ===
 DATA_DIR = "./data"
