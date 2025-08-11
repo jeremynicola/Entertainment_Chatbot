@@ -9,7 +9,6 @@ from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
 
-
 # === SETTINGS ===
 DATA_DIR = "./data"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -56,17 +55,17 @@ def setup_chain(llm, vector_db):
         return_source_documents=True
     )
 
-
 # === STYLE MESSAGE RENDERER ===
 def render_message(message, sender):
     timestamp = datetime.now().strftime("%H:%M")
-    color = "Blue" if sender == "user" else "Black"
+    color = "#2b7cff" if sender == "user" else "#444444"
     align = "margin-left:auto;" if sender == "user" else "margin-right:auto;"
+    text_color = "white"
     st.markdown(
         f"""
-        <div style="background-color:{color}; padding:10px; border-radius:10px; max-width:70%; {align} margin-bottom:5px; border:1px solid #ccc;">
+        <div style="background-color:{color}; color:{text_color}; padding:10px; border-radius:10px; max-width:70%; {align} margin-bottom:5px;">
             {message}
-            <div style="font-size:10px; text-align:right; color:gray;">{timestamp}</div>
+            <div style="font-size:10px; text-align:right;">{timestamp}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -75,8 +74,6 @@ def render_message(message, sender):
 # === MAIN APP ===
 st.title("🎬 Entertainment Chatbot")
 st.caption("Ask about movies, games, or celebrities!")
-
-user_input = st.text_input("Type your message...")
 
 # Clear chat history button
 if st.button("Clear Chat History"):
@@ -89,23 +86,15 @@ user_input = st.text_input("Type your message...", key="user_message")
 if user_input:
     llm = initialize_llm()
     db = load_or_create_db()
-    answer = None
 
-    st.session_state.chat_history.append({"sender": "user", "message": user_input})
-    st.session_state.memory.chat_memory.add_user_message(user_input)
-
-    # 1. Try database
-    if db:
+    if not db:
+        answer = "No PDF documents found in the data folder."
+    else:
         qa_chain = setup_chain(llm, db)
         with st.spinner("🎬 Thinking with database..."):
             result = qa_chain.invoke({"query": user_input})
             answer = result["result"]
 
-   
-            else:
-                answer = "Sorry, I couldn't find an answer in the databases."
-
-    
     # Save conversation
     st.session_state.chat_history.append({"sender": "user", "message": user_input})
     st.session_state.memory.chat_memory.add_user_message(user_input)
@@ -115,7 +104,6 @@ if user_input:
     # Clear input
     st.session_state.user_message = ""
     st.experimental_rerun()
-
 
 # === Render chat history ===
 for chat in st.session_state.chat_history:
