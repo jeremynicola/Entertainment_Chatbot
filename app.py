@@ -15,6 +15,7 @@ DATA_DIR = "./data"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 MODEL_NAME = "llama3-70b-8192"
 
+
 # === INIT LLM ===
 @st.cache_resource
 def initialize_llm():
