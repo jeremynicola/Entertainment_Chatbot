@@ -164,7 +164,7 @@ Conversation so far:
     
     st.session_state.chat_history.append({"sender": "bot", "message": answer})
     st.session_state.memory.chat_memory.add_ai_message(answer)
-    st.session_state.user_input = ""  # Clear input after message is sent
+    st.session_state["user_input"] = ""  # Clear input after message is sent
 
 # === Render chat history ===
 for chat in st.session_state.chat_history:
