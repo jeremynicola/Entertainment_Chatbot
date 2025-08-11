@@ -113,6 +113,12 @@ def render_message(message, sender):
 st.title("🎬 Entertainment Chatbot")
 st.caption("Ask about movies, games, or celebrities!")
 
+# Add clear chat history button
+if st.button("Clear Chat History"):
+    st.session_state.chat_history = []
+    st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    st.experimental_rerun()  # Rerun app to reflect cleared chat
+
 user_input = st.text_input("Type your message...")
 
 if user_input:
