@@ -9,6 +9,7 @@ from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
 
+
 # === SETTINGS ===
 DATA_DIR = "./data"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -55,17 +56,54 @@ def setup_chain(llm, vector_db):
         return_source_documents=True
     )
 
+# === LIVE INTERNET SEARCH (DuckDuckGo + fallback parsing) ===
+def live_search(query):
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=1))
+
+        if not results:
+            st.warning("❌ No search results found.")
+            return None
+
+        top_link = results[0].get("href")
+        st.info(f"🔍 Found link: {top_link}")
+
+        # Try Newspaper3k
+        content = None
+        try:
+            article = Article(top_link)
+            article.download()
+            article.parse()
+            content = article.text.strip()
+        except Exception as e:
+            st.warning(f"⚠ Newspaper3k failed: {e}")
+
+        # Fallback to Trafilatura
+        if not content:
+            try:
+                downloaded = trafilatura.fetch_url(top_link)
+                if downloaded:
+                    content = trafilatura.extract(downloaded)
+            except Exception as e:
+                st.warning(f"⚠ Trafilatura failed: {e}")
+
+        return content[:2000] if content else None
+
+    except Exception as e:
+        st.error(f"Live search error: {type(e).__name__} - {e}")
+        return None
+
 # === STYLE MESSAGE RENDERER ===
 def render_message(message, sender):
     timestamp = datetime.now().strftime("%H:%M")
-    color = "#2b7cff" if sender == "user" else "#444444"
+    color = "Blue" if sender == "user" else "Black"
     align = "margin-left:auto;" if sender == "user" else "margin-right:auto;"
-    text_color = "white"
     st.markdown(
         f"""
-        <div style="background-color:{color}; color:{text_color}; padding:10px; border-radius:10px; max-width:70%; {align} margin-bottom:5px;">
+        <div style="background-color:{color}; padding:10px; border-radius:10px; max-width:70%; {align} margin-bottom:5px; border:1px solid #ccc;">
             {message}
-            <div style="font-size:10px; text-align:right;">{timestamp}</div>
+            <div style="font-size:10px; text-align:right; color:gray;">{timestamp}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -75,35 +113,45 @@ def render_message(message, sender):
 st.title("🎬 Entertainment Chatbot")
 st.caption("Ask about movies, games, or celebrities!")
 
-# Clear chat history button
-if st.button("Clear Chat History"):
-    st.session_state.chat_history = []
-    st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    st.experimental_rerun()
-
-user_input = st.text_input("Type your message...", key="user_message")
+user_input = st.text_input("Type your message...")
 
 if user_input:
     llm = initialize_llm()
     db = load_or_create_db()
+    answer = None
 
-    if not db:
-        answer = "No PDF documents found in the data folder."
-    else:
+    st.session_state.chat_history.append({"sender": "user", "message": user_input})
+    st.session_state.memory.chat_memory.add_user_message(user_input)
+
+    # 1. Try database
+    if db:
         qa_chain = setup_chain(llm, db)
         with st.spinner("🎬 Thinking with database..."):
             result = qa_chain.invoke({"query": user_input})
             answer = result["result"]
 
-    # Save conversation
-    st.session_state.chat_history.append({"sender": "user", "message": user_input})
-    st.session_state.memory.chat_memory.add_user_message(user_input)
+    # 2. If no answer, try live search
+    if not answer or answer.strip().lower() in ["", "i don't know", "not sure"]:
+        with st.spinner("🌍 Searching the web..."):
+            search_result = live_search(user_input)
+            if search_result:
+                conversation_history = ''.join([f"{m['sender']}: {m['message']}\n" for m in st.session_state.chat_history])
+                rewrite_prompt = f"""
+You are an entertainment expert.
+Rewrite the following extracted web content into a friendly, clear answer:
+
+User question: {user_input}
+Web content: {search_result}
+
+Conversation so far:
+{conversation_history}
+"""
+                answer = llm.invoke(rewrite_prompt).content
+            else:
+                answer = "Sorry, I couldn't find an answer in the documents or online."
+
     st.session_state.chat_history.append({"sender": "bot", "message": answer})
     st.session_state.memory.chat_memory.add_ai_message(answer)
-
-    # Clear input
-    st.session_state.user_message = ""
-    st.experimental_rerun()
 
 # === Render chat history ===
 for chat in st.session_state.chat_history:
