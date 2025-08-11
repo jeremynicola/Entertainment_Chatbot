@@ -45,8 +45,6 @@ if "memory" not in st.session_state:
     st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "user_input" not in st.session_state:
-    st.session_state["user_input"]= ""
 
 # === SETUP RETRIEVAL CHAIN ===
 def setup_chain(llm, vector_db):
@@ -115,16 +113,7 @@ def render_message(message, sender):
 st.title("🎬 Entertainment Chatbot")
 st.caption("Ask about movies, games, or celebrities!")
 
-# Clear chat history and input button
-if st.button("Clear Chat History"):
-    st.session_state.chat_history = []
-    st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    st.session_state["user_input"]= ""
-    st.experimental_rerun()
-
-# Controlled text input using key and session_state
-user_input = st.text_input("Type your message...", key="user_input")
-
+user_input = st.text_input("Type your message...")
 
 if user_input:
     llm = initialize_llm()
@@ -161,10 +150,8 @@ Conversation so far:
             else:
                 answer = "Sorry, I couldn't find an answer in the documents or online."
 
-    
     st.session_state.chat_history.append({"sender": "bot", "message": answer})
     st.session_state.memory.chat_memory.add_ai_message(answer)
-    st.session_state["user_input"] = ""  # Clear input after message is sent
 
 # === Render chat history ===
 for chat in st.session_state.chat_history:
