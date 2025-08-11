@@ -8,13 +8,12 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
-
+import requests
 
 # === SETTINGS ===
 DATA_DIR = "./data"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 MODEL_NAME = "llama3-70b-8192"
-
 
 # === INIT LLM ===
 @st.cache_resource
