@@ -104,7 +104,7 @@ if user_input:
    
             else:
                 answer = "Sorry, I couldn't find an answer in the databases."
-s
+
     
     # Save conversation
     st.session_state.chat_history.append({"sender": "user", "message": user_input})
