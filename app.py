@@ -123,7 +123,7 @@ if st.button("Clear Chat History"):
     st.experimental_rerun()
 
 # Controlled text input using key and session_state
-user_input = st.text_input("Type your message...", value=st.session_state.user_input, key="user_input")
+user_input = st.text_input("Type your message...", key="user_input")
 
 
 if user_input:
