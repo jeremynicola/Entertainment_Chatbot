@@ -19,28 +19,28 @@ import trafilatura
 DATA_DIR = "./data"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 PRIMARY_MODEL = "llama-3.3-70b-versatile"     # preferred
-FALLBACK_MODEL = "llama-3.1-8b-instant"     # fallback if primary fails
+FALLBACK_MODEL = "llama-3.1-8b-instant"       # fallback if primary fails
 
 
 # === INIT LLM WITH FALLBACK ===
 @st.cache_resource
 def initialize_llm():
-    groq_key = st.secrets.get("GROQ_API_KEY", None)
+    groq_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
     if not groq_key:
-        st.error("❌ Missing GROQ_API_KEY in .streamlit/secrets.toml")
+        st.error("❌ Missing GROQ_API_KEY. Add it in `.streamlit/secrets.toml` or environment.")
         st.stop()
 
     try:
         return ChatGroq(
             temperature=0.5,
-            groq_api_key=groq_key,
+            api_key=groq_key,          # ✅ FIX: correct param
             model_name=PRIMARY_MODEL,
         )
     except Exception as e:
         st.warning(f"⚠ Primary model {PRIMARY_MODEL} failed: {e}. Falling back to {FALLBACK_MODEL}...")
         return ChatGroq(
             temperature=0.5,
-            groq_api_key=groq_key,
+            api_key=groq_key,          # ✅ FIX
             model_name=FALLBACK_MODEL,
         )
 
@@ -73,7 +73,7 @@ if "chat_history" not in st.session_state:
 
 # === SETUP RETRIEVAL CHAIN ===
 def setup_chain(llm, vector_db):
-    retriever = vector_db.as_retriever()
+    retriever = vector_db.as_retriever(search_kwargs={"k": 3})
     return RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
@@ -119,6 +119,21 @@ def live_search(query):
         return None
 
 
+# === BAD ANSWER DETECTION ===
+BAD_ANSWERS = ["i don't know", "not sure", "sorry", "cannot find", "no information"]
+
+def is_bad_answer(ans: str) -> bool:
+    if not ans:
+        return True
+    ans_low = ans.lower()
+    if any(bad in ans_low for bad in BAD_ANSWERS):
+        return True
+    # too short or vague
+    if len(ans.split()) < 15:
+        return True
+    return False
+
+
 # === STYLE MESSAGE RENDERER ===
 def render_message(message, sender):
     timestamp = datetime.now().strftime("%H:%M")
@@ -162,12 +177,12 @@ if user_input:
         with st.spinner("🎬 Thinking with database..."):
             try:
                 result = qa_chain.invoke({"query": user_input})
-                answer = result["result"]
+                answer = result.get("result", "").strip()
             except Exception as e:
                 st.warning(f"⚠ Database query failed: {e}")
 
-    # 2. If no answer, try live search
-    if not answer or answer.strip().lower() in ["", "i don't know", "not sure"]:
+    # 2. If bad/empty answer → do web search
+    if is_bad_answer(answer):
         with st.spinner("🌍 Searching the web..."):
             search_result = live_search(user_input)
             if search_result:
@@ -184,7 +199,7 @@ Conversation so far:
 """
                 try:
                     response = llm.invoke(rewrite_prompt)
-                    answer = response.content
+                    answer = getattr(response, "content", str(response))
                 except Exception as e:
                     st.error(f"Groq rewrite failed: {e}")
                     answer = "Sorry, I couldn't process the web result."
