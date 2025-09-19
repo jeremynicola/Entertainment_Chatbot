@@ -158,7 +158,7 @@ st.caption("Ask about movies, games, or celebrities!")
 if st.button("Clear Chat History"):
     st.session_state.chat_history = []
     st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    st.experimental_rerun()
+    
 
 user_input = st.text_input("Type your message...")
 
