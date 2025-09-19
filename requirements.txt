@@ -1,11 +1,22 @@
-streamlit==1.35.0
-langchain==0.2.1
-langchain-core==0.2.1
-langchain-community==0.2.1
-langchain-groq
-sentence-transformers
-faiss-cpu
-pypdf
-ddgs
-pandas
+# Core app
+streamlit
 requests
+datetime
+
+# LangChain + Groq
+langchain
+langchain-groq
+langchain-community
+
+# Vector store + embeddings
+faiss-cpu
+sentence-transformers
+
+# Document processing
+pypdf
+newspaper3k
+lxml_html_clean
+trafilatura
+
+# Search
+duckduckgo-search

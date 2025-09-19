@@ -8,21 +8,42 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores import FAISS
-import requests
+
+# 🔹 Extra imports
+from duckduckgo_search import DDGS
+from newspaper import Article
+import trafilatura
+
 
 # === SETTINGS ===
 DATA_DIR = "./data"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-MODEL_NAME = "llama3-70b-8192"
+PRIMARY_MODEL = "llama-3.3-70b-versatile"     # preferred
+FALLBACK_MODEL = "llama-3.1-8b-instant"     # fallback if primary fails
 
-# === INIT LLM ===
+
+# === INIT LLM WITH FALLBACK ===
 @st.cache_resource
 def initialize_llm():
-    return ChatGroq(
-        temperature=0.5,
-        groq_api_key=st.secrets["GROQ_API_KEY"],
-        model_name=MODEL_NAME
-    )
+    groq_key = st.secrets.get("GROQ_API_KEY", None)
+    if not groq_key:
+        st.error("❌ Missing GROQ_API_KEY in .streamlit/secrets.toml")
+        st.stop()
+
+    try:
+        return ChatGroq(
+            temperature=0.5,
+            groq_api_key=groq_key,
+            model_name=PRIMARY_MODEL,
+        )
+    except Exception as e:
+        st.warning(f"⚠ Primary model {PRIMARY_MODEL} failed: {e}. Falling back to {FALLBACK_MODEL}...")
+        return ChatGroq(
+            temperature=0.5,
+            groq_api_key=groq_key,
+            model_name=FALLBACK_MODEL,
+        )
+
 
 # === BUILD / LOAD VECTOR DB ===
 @st.cache_resource
@@ -32,19 +53,23 @@ def load_or_create_db():
     pdfs = [f for f in os.listdir(DATA_DIR) if f.endswith(".pdf")]
     if len(pdfs) == 0:
         return None
+
     loader = DirectoryLoader(DATA_DIR, glob='*.pdf', loader_cls=PyPDFLoader)
     docs = loader.load()
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     texts = splitter.split_documents(docs)
     embeddings = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+
     db = FAISS.from_documents(texts, embeddings)
     return db
+
 
 # === MEMORY ===
 if "memory" not in st.session_state:
     st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+
 
 # === SETUP RETRIEVAL CHAIN ===
 def setup_chain(llm, vector_db):
@@ -56,7 +81,8 @@ def setup_chain(llm, vector_db):
         return_source_documents=True
     )
 
-# === LIVE INTERNET SEARCH (DuckDuckGo + fallback parsing) ===
+
+# === LIVE INTERNET SEARCH ===
 def live_search(query):
     try:
         with DDGS() as ddgs:
@@ -69,7 +95,6 @@ def live_search(query):
         top_link = results[0].get("href")
         st.info(f"🔍 Found link: {top_link}")
 
-        # Try Newspaper3k
         content = None
         try:
             article = Article(top_link)
@@ -79,7 +104,6 @@ def live_search(query):
         except Exception as e:
             st.warning(f"⚠ Newspaper3k failed: {e}")
 
-        # Fallback to Trafilatura
         if not content:
             try:
                 downloaded = trafilatura.fetch_url(top_link)
@@ -94,30 +118,32 @@ def live_search(query):
         st.error(f"Live search error: {type(e).__name__} - {e}")
         return None
 
+
 # === STYLE MESSAGE RENDERER ===
 def render_message(message, sender):
     timestamp = datetime.now().strftime("%H:%M")
-    color = "Blue" if sender == "user" else "Black"
+    color = "#007BFF" if sender == "user" else "#000000"
     align = "margin-left:auto;" if sender == "user" else "margin-right:auto;"
     st.markdown(
         f"""
-        <div style="background-color:{color}; padding:10px; border-radius:10px; max-width:70%; {align} margin-bottom:5px; border:1px solid #ccc;">
+        <div style="background-color:{color}; padding:10px; border-radius:10px; 
+             max-width:70%; {align} margin-bottom:5px; border:1px solid #ccc; color:white;">
             {message}
-            <div style="font-size:10px; text-align:right; color:gray;">{timestamp}</div>
+            <div style="font-size:10px; text-align:right; color:lightgray;">{timestamp}</div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
+
 # === MAIN APP ===
 st.title("🎬 Entertainment Chatbot")
 st.caption("Ask about movies, games, or celebrities!")
 
-# Add clear chat history button
 if st.button("Clear Chat History"):
     st.session_state.chat_history = []
     st.session_state.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    st.experimental_rerun()  # Rerun app to reflect cleared chat
+    st.experimental_rerun()
 
 user_input = st.text_input("Type your message...")
 
@@ -126,6 +152,7 @@ if user_input:
     db = load_or_create_db()
     answer = None
 
+    # Save user message
     st.session_state.chat_history.append({"sender": "user", "message": user_input})
     st.session_state.memory.chat_memory.add_user_message(user_input)
 
@@ -133,8 +160,11 @@ if user_input:
     if db:
         qa_chain = setup_chain(llm, db)
         with st.spinner("🎬 Thinking with database..."):
-            result = qa_chain.invoke({"query": user_input})
-            answer = result["result"]
+            try:
+                result = qa_chain.invoke({"query": user_input})
+                answer = result["result"]
+            except Exception as e:
+                st.warning(f"⚠ Database query failed: {e}")
 
     # 2. If no answer, try live search
     if not answer or answer.strip().lower() in ["", "i don't know", "not sure"]:
@@ -152,17 +182,19 @@ Web content: {search_result}
 Conversation so far:
 {conversation_history}
 """
-                answer = llm.invoke(rewrite_prompt).content
+                try:
+                    response = llm.invoke(rewrite_prompt)
+                    answer = response.content
+                except Exception as e:
+                    st.error(f"Groq rewrite failed: {e}")
+                    answer = "Sorry, I couldn't process the web result."
             else:
                 answer = "Sorry, I couldn't find an answer in the documents or online."
 
+    # Save bot message
     st.session_state.chat_history.append({"sender": "bot", "message": answer})
     st.session_state.memory.chat_memory.add_ai_message(answer)
 
-
-
-
-    
 # === Render chat history ===
 for chat in st.session_state.chat_history:
     render_message(chat["message"], chat["sender"])
