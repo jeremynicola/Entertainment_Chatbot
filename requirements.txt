@@ -5,9 +5,13 @@ requests
 langchain-text-splitters
 
 # LangChain + Groq
+langchain-groq
 langchain==0.1.17
 langchain-community==0.0.36
 sentence-transformers
+langchain
+langchain-core
+
 
 
 torchvision
