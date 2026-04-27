@@ -8,6 +8,14 @@ langchain
 langchain-groq
 langchain-community
 langchain.document_loaders
+mdurl
+markdown_it_py
+pygments
+rich
+
+
+
+
 
 # Vector store + embeddings
 faiss-cpu
