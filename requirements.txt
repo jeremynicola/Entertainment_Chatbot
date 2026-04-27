@@ -1,17 +1,12 @@
 # Core app
 streamlit
 requests
-datetime
+
 
 # LangChain + Groq
 langchain
 langchain-groq
 langchain-community
-langchain.document_loaders
-mdurl
-markdown_it_py
-pygments
-rich
 
 
 
