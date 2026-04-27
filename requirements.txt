@@ -2,6 +2,7 @@
 streamlit
 requests
 
+langchain-text-splitters
 
 # LangChain + Groq
 langchain
