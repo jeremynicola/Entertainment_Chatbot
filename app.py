@@ -3,7 +3,7 @@ import streamlit as st
 from datetime import datetime
 from langchain_groq import ChatGroq
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
-from langchain_text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.memory import ConversationBufferMemory
