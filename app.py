@@ -2,7 +2,7 @@ import os
 import streamlit as st
 from datetime import datetime
 from langchain_groq import ChatGroq
-from langchain.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain.community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
