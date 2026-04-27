@@ -10,7 +10,7 @@ langchain-community
 
 
 
-
+torchvision
 
 # Vector store + embeddings
 faiss-cpu
