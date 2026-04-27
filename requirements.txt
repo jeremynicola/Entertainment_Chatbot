@@ -7,6 +7,7 @@ datetime
 langchain
 langchain-groq
 langchain-community
+langchain.document_loaders
 
 # Vector store + embeddings
 faiss-cpu
